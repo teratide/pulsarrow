@@ -1,0 +1,12 @@
+[package]
+name = "pulsarrow"
+version = "0.1.0"
+authors = ["Matthijs Brobbel <m1brobbel@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+arrow = { git = "https://github.com/apache/arrow/" }
+futures = "0.3"
+pulsar = { version = "1", default-features = false, features = ["tokio-runtime"] }
+rand = { version = "0.7", default-features = false }
+tokio = "0.2"
