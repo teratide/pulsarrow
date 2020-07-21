@@ -10,3 +10,10 @@ futures = "0.3"
 pulsar = { version = "1", default-features = false, features = ["tokio-runtime"] }
 rand = { version = "0.7", default-features = false }
 tokio = "0.2"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "serde"
+harness = false

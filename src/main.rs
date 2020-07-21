@@ -1,61 +1,10 @@
-use arrow::{
-    array::{Array, UInt64Array},
-    datatypes::{DataType, Field, Schema},
-    record_batch::{RecordBatch, RecordBatchReader},
-    util::pretty::print_batches,
-};
+use arrow::util::pretty::print_batches;
 use futures::TryStreamExt;
 use pulsar::{
-    message::proto::command_subscribe::SubType, producer, Consumer, DeserializeMessage,
-    Error as PulsarError, Executor, Pulsar, SerializeMessage, TokioExecutor,
+    message::proto::command_subscribe::SubType, Consumer, Error as PulsarError, Executor, Pulsar,
+    TokioExecutor,
 };
-use std::sync::Arc;
-
-pub struct RandomData(RecordBatch);
-
-impl Default for RandomData {
-    fn default() -> Self {
-        RandomData(
-            RecordBatch::try_new(
-                Arc::new(Schema::new(vec![Field::new(
-                    "rand",
-                    DataType::UInt64,
-                    false,
-                )])),
-                vec![Arc::new(UInt64Array::from(
-                    (0..2).map(|_| rand::random::<u64>()).collect::<Vec<u64>>(),
-                )) as Arc<dyn Array>],
-            )
-            .expect("recordbatch failed"),
-        )
-    }
-}
-
-impl SerializeMessage for RandomData {
-    fn serialize_message(input: Self) -> Result<producer::Message, PulsarError> {
-        let mut payload = Vec::new();
-        {
-            let mut writer =
-                arrow::ipc::writer::StreamWriter::try_new(&mut payload, &input.0.schema())
-                    .expect("writer failed");
-            writer.write(&input.0).expect("failed to write batch");
-            writer.finish().expect("writer failed");
-        }
-        Ok(producer::Message {
-            payload,
-            ..Default::default()
-        })
-    }
-}
-
-impl DeserializeMessage for RandomData {
-    type Output = Result<Option<RecordBatch>, arrow::error::ArrowError>;
-    fn deserialize_message(payload: &pulsar::Payload) -> Self::Output {
-        arrow::ipc::reader::StreamReader::try_new(&payload.data[..])
-            .expect("reader failed")
-            .next_batch()
-    }
-}
+use pulsarrow::RandomData;
 
 async fn prod<E: Executor>(pulsar: &Pulsar<E>, topic: &str) -> Result<(), PulsarError> {
     let mut producer = pulsar
