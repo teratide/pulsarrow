@@ -1,45 +1,53 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use pulsar::{DeserializeMessage, Payload, SerializeMessage};
 use pulsarrow::{RandomData, RawRandomData};
 
 pub fn ipc(c: &mut Criterion) {
-    c.benchmark_group("ipc")
-        .throughput(Throughput::Bytes(100 * std::mem::size_of::<u64>() as u64))
-        .bench_function("serialize", |b| {
-            let input = RandomData::default();
-            b.iter(|| SerializeMessage::serialize_message(black_box(input.clone())))
-        })
-        .bench_function("deserialize", |b| {
-            let payload = Payload {
-                data: SerializeMessage::serialize_message(RandomData::default())
-                    .unwrap()
-                    .payload,
-                metadata: Default::default(),
-            };
-            b.iter(|| {
-                RandomData::deserialize_message(black_box(&payload)).unwrap();
+    let mut group = c.benchmark_group("ipc");
+    for size in [1, 100, 1_000, 10_000, 100_000, 1_000_000].iter() {
+        group
+            .throughput(Throughput::Bytes(size * std::mem::size_of::<u64>() as u64))
+            .bench_with_input(BenchmarkId::new("serialize", size), size, |b, &size| {
+                let input = RandomData::new(size as usize);
+                b.iter(|| SerializeMessage::serialize_message(black_box(input.clone())))
             })
-        });
+            .bench_with_input(BenchmarkId::new("deserialize", size), size, |b, &size| {
+                let payload = Payload {
+                    data: SerializeMessage::serialize_message(RandomData::new(size as usize))
+                        .unwrap()
+                        .payload,
+                    metadata: Default::default(),
+                };
+                b.iter(|| {
+                    RandomData::deserialize_message(black_box(&payload)).unwrap();
+                })
+            });
+    }
+    group.finish();
 }
 
 pub fn raw(c: &mut Criterion) {
-    c.benchmark_group("raw")
-        .throughput(Throughput::Bytes(100 * std::mem::size_of::<u64>() as u64))
-        .bench_function("serialize", |b| {
-            let input = RawRandomData::default();
-            b.iter(|| SerializeMessage::serialize_message(black_box(input.clone())));
-        })
-        .bench_function("deserialize", |b| {
-            let payload = Payload {
-                data: SerializeMessage::serialize_message(RawRandomData::default())
-                    .unwrap()
-                    .payload,
-                metadata: Default::default(),
-            };
-            b.iter(|| {
-                RawRandomData::deserialize_message(black_box(&payload));
+    let mut group = c.benchmark_group("raw");
+    for size in [1, 100, 1_000, 10_000, 100_000, 1_000_000].iter() {
+        group
+            .throughput(Throughput::Bytes(size * std::mem::size_of::<u64>() as u64))
+            .bench_with_input(BenchmarkId::new("serialize", size), size, |b, &size| {
+                let input = RawRandomData::new(size as usize);
+                b.iter(|| SerializeMessage::serialize_message(black_box(input.clone())))
             })
-        });
+            .bench_with_input(BenchmarkId::new("deserialize", size), size, |b, &size| {
+                let payload = Payload {
+                    data: SerializeMessage::serialize_message(RawRandomData::new(size as usize))
+                        .unwrap()
+                        .payload,
+                    metadata: Default::default(),
+                };
+                b.iter(|| {
+                    RawRandomData::deserialize_message(black_box(&payload));
+                })
+            });
+    }
+    group.finish();
 }
 
 criterion_group!(serde, ipc, raw);

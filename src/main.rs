@@ -15,7 +15,7 @@ async fn prod<E: Executor>(pulsar: &Pulsar<E>, topic: &str) -> Result<(), Pulsar
         .await?;
 
     loop {
-        producer.send(RandomData::default()).await?;
+        producer.send(RandomData::new(100)).await?;
         tokio::time::delay_for(std::time::Duration::from_millis(200)).await;
     }
 }

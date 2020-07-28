@@ -1,7 +1,8 @@
 use arrow::{
-    array::{Array, UInt64Array, StructArray, ArrayEqual},
+    array::{Array, ArrayEqual, StructArray, UInt64Array},
+    buffer::Buffer,
     datatypes::{DataType, Field, Schema},
-    record_batch::{RecordBatch, RecordBatchReader}, buffer::Buffer,
+    record_batch::{RecordBatch, RecordBatchReader},
 };
 use pulsar::{producer, DeserializeMessage, Error as PulsarError, SerializeMessage};
 use std::sync::Arc;
@@ -16,11 +17,11 @@ impl PartialEq for RandomData {
             let b: StructArray = other.0.clone().into();
             a.equals(&b)
         }
-    }   
+    }
 }
 
-impl Default for RandomData {
-    fn default() -> Self {
+impl RandomData {
+    pub fn new(size: usize) -> Self {
         RandomData(
             RecordBatch::try_new(
                 Arc::new(Schema::new(vec![Field::new(
@@ -29,7 +30,7 @@ impl Default for RandomData {
                     false,
                 )])),
                 vec![Arc::new(UInt64Array::from(
-                    (0..100)
+                    (0..size)
                         .map(|_| rand::random::<u64>())
                         .collect::<Vec<u64>>(),
                 )) as Arc<dyn Array>],
@@ -65,12 +66,19 @@ impl DeserializeMessage for RandomData {
     }
 }
 
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RawRandomData(RandomData);
+
+impl RawRandomData {
+    pub fn new(size: usize) -> Self {
+        RawRandomData(RandomData::new(size))
+    }
+}
 
 impl SerializeMessage for RawRandomData {
     fn serialize_message(input: Self) -> Result<producer::Message, PulsarError> {
-        let payload = unsafe { input.0.0.column(0).data_ref().buffers()[0].typed_data::<u8>() }.to_vec();
+        let payload =
+            unsafe { (input.0).0.column(0).data_ref().buffers()[0].typed_data::<u8>() }.to_vec();
         Ok(producer::Message {
             payload,
             ..Default::default()
@@ -84,13 +92,14 @@ impl DeserializeMessage for RawRandomData {
         let buffer = Buffer::from(&payload.data);
         let array = Arc::new(UInt64Array::new(100, buffer, 0, 0));
         let schema = Arc::new(Schema::new(vec![Field::new(
-                    "rand",
-                    DataType::UInt64,
-                    false,
-                )]));
-        RawRandomData(RandomData(RecordBatch::try_new(schema, vec![array as Arc<dyn Array>]).unwrap()))
+            "rand",
+            DataType::UInt64,
+            false,
+        )]));
+        RawRandomData(RandomData(
+            RecordBatch::try_new(schema, vec![array as Arc<dyn Array>]).unwrap(),
+        ))
     }
-    
 }
 
 #[cfg(test)]
@@ -100,9 +109,14 @@ mod tests {
 
     #[test]
     fn validate_raw() {
-        let input = RawRandomData::default();
-        let data = SerializeMessage::serialize_message(input.clone()).unwrap().payload;
-        let output = RawRandomData::deserialize_message(&Payload { data, metadata: Default::default() });
-        assert_eq!(input, output);  
+        let input = RawRandomData::new(1234);
+        let data = SerializeMessage::serialize_message(input.clone())
+            .unwrap()
+            .payload;
+        let output = RawRandomData::deserialize_message(&Payload {
+            data,
+            metadata: Default::default(),
+        });
+        assert_eq!(input, output);
     }
 }
