@@ -5,7 +5,7 @@ authors = ["Matthijs Brobbel <m1brobbel@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-arrow = { git = "https://github.com/apache/arrow/" }
+arrow = { version = "1.0", default-features = false, features = ["prettyprint"] }
 futures = "0.3"
 pulsar = { version = "1", default-features = false, features = ["tokio-runtime"] }
 rand = { version = "0.7", default-features = false }
