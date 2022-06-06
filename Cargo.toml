@@ -9,7 +9,7 @@ arrow = { version = "1.0", default-features = false, features = ["prettyprint"] 
 futures = "0.3"
 pulsar = { version = "1", default-features = false, features = ["tokio-runtime"] }
 rand = { version = "0.7", default-features = false }
-tokio = "0.2"
+tokio = "1.8"
 
 [dev-dependencies]
 criterion = "0.3"
